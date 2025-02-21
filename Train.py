@@ -110,6 +110,7 @@ def convert_train_data(training_data_r):
             continue
     
     return pd.DataFrame(train_data_list)
+
 def process_features(df):
     """
     Process and engineer features for train delay prediction.
@@ -210,14 +211,151 @@ def train_delay_model(df):
 historical_df = convert_historical_congestion(historical_congestion_r)
 historical_df.head(6)
 
+df = process_features(convert_train_data(training_data_r))
 
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='hour', y='arrival_delay', data=df, marker='o')
+plt.xlabel("Hour of the Day")
+plt.ylabel("Average Arrival Delay (seconds)")
+plt.title("Train Arrival Delays Throughout the Day")
+plt.grid()
+plt.show()
 
-def data_visualization(df):
+stations = ['congestion_Leeds.av.delay', 'congestion_Sheffield.av.delay', 'congestion_Nottingham.av.delay']
+df_melted = df.melt(id_vars=['hour'], value_vars=stations, var_name="Station", value_name="Average Delay")
 
-    df = df.copy()
-    correlation_matrix = df.corr()
-    print(correlation_matrix)
-    print("Helloi")
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='hour', y='Average Delay', hue='Station', data=df_melted, marker='o')
+plt.xlabel("Hour of the Day")
+plt.ylabel("Average Delay (seconds)")
+plt.title("Average Station Delay by Hour")
+plt.legend(title="Station")
+plt.grid()
+plt.show()
 
-data_visualization
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=df['total_congestion'], y=df['arrival_delay'])
+plt.xlabel("Total Congestion (Number of Trains)")
+plt.ylabel("Arrival Delay (seconds)")
+plt.title("Effect of Congestion on Train Delays")
+plt.grid()
+plt.show()
 
+#Initialise days of the week
+day_mapping = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday"}
+
+# Mapping to replace numbers with day names
+df['day_of_week'] = df['day_of_week'].map(day_mapping)
+
+plt.figure(figsize=(12, 6))
+sns.boxplot(x='day_of_week', y='arrival_delay', data=df, order=day_mapping.values())
+plt.xlabel("Day of the Week")
+plt.ylabel("Arrival Delay (seconds)")
+plt.title("Train Delay Distribution by Day of the Week")
+plt.grid()
+plt.show()
+
+# Check non-numeric columns
+non_numeric_cols = df.select_dtypes(exclude=['number']).columns
+print("Non-numeric columns:", non_numeric_cols.tolist())
+
+# Convert list columns to scalar values
+for col in non_numeric_cols:
+    df[col] = df[col].apply(lambda x: x[-1] if isinstance(x, list) else x)
+
+# Convert now-cleaned columns to numeric
+df[non_numeric_cols] = df[non_numeric_cols].apply(pd.to_numeric, errors='coerce')
+
+# Drop remaining non-numeric columns
+df_cleaned = df.select_dtypes(include=['number'])
+
+plt.figure(figsize=(12, 8))
+heatmap = sns.heatmap(df_cleaned.corr(), annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+
+heatmap.set_xticklabels(heatmap.get_xticklabels(), rotation=45, ha="right")
+heatmap.set_yticklabels(heatmap.get_yticklabels(), rotation=0)
+
+plt.title("Feature Correlation Heatmap")
+plt.tight_layout()
+plt.show()
+
+# Define peak hours
+df['is_peak_hour'] = df['hour'].apply(lambda x: 1 if (6 <= x <= 9) or (16 <= x <= 19) else 0)
+
+plt.figure(figsize=(10, 6))
+sns.boxplot(x=df['is_peak_hour'], y=df['arrival_delay'])
+plt.xticks(ticks=[0, 1], labels=["Non-Peak", "Peak"])
+plt.xlabel("Time of Day")
+plt.ylabel("Arrival Delay (seconds)")
+plt.title("Train Delays During Peak vs. Non-Peak Hours")
+plt.grid()
+plt.show()
+
+#Initialise days of the week
+day_mapping = {0: "Monday", 1: "Tuesday", 2: "Wednesday", 3: "Thursday", 4: "Friday"}
+
+# Apply mapping to replace numbers with day names
+df['day_of_week'] = df['day_of_week'].map(day_mapping)
+
+plt.figure(figsize=(12, 6))
+sns.boxplot(x='day_of_week', y='arrival_delay', data=df, order=day_mapping.values())  # Ensure order is correct
+plt.xlabel("Day of the Week")
+plt.ylabel("Arrival Delay (seconds)")
+plt.title("Train Delay Distribution by Day of the Week")
+plt.grid()
+plt.show()
+
+# Check for non-numeric columns
+non_numeric_cols = df.select_dtypes(exclude=['number']).columns
+print("Non-numeric columns:", non_numeric_cols.tolist())
+
+# Convert any list columns to scalar values
+for col in non_numeric_cols:
+    df[col] = df[col].apply(lambda x: x[-1] if isinstance(x, list) else x)
+
+# Convert columns to numeric
+df[non_numeric_cols] = df[non_numeric_cols].apply(pd.to_numeric, errors='coerce')
+
+# Drop remaining non-numeric columns
+df_cleaned = df.select_dtypes(include=['number'])
+
+plt.figure(figsize=(12, 8)) 
+heatmap = sns.heatmap(df_cleaned.corr(), annot=True, cmap='coolwarm', fmt=".2f", linewidths=0.5)
+
+# Rotate X and Y axis 
+heatmap.set_xticklabels(heatmap.get_xticklabels(), rotation=45, ha="right")
+heatmap.set_yticklabels(heatmap.get_yticklabels(), rotation=0)
+
+plt.title("Feature Correlation Heatmap")
+plt.tight_layout()
+plt.show()
+
+# Define peak hours
+df['is_peak_hour'] = df['hour'].apply(lambda x: 1 if (6 <= x <= 9) or (16 <= x <= 19) else 0)
+
+stations = ['Leeds', 'Sheffield', 'Nottingham']
+
+plt.figure(figsize=(12, 6))
+
+for station in stations:
+    station_col_delay = f'congestion_{station}.av.delay'  
+    sns.boxplot(x=df['is_peak_hour'], y=df[station_col_delay], label=station)
+
+plt.xticks(ticks=[0, 1], labels=["Non-Peak", "Peak"])
+plt.xlabel("Time of Day")
+plt.ylabel("Average Delay per Station (seconds)")
+plt.title("Station-wise Delays During Peak vs. Non-Peak Hours")
+plt.legend(title='Stations')
+plt.grid()
+plt.show()
+
+plt.figure(figsize=(10, 6))
+sns.boxplot(x=df['is_peak_hour'], y=df['arrival_delay'])
+plt.xticks(ticks=[0, 1], labels=["Non-Peak", "Peak"])
+plt.xlabel("Time of Day")
+plt.ylabel("Overall Arrival Delay (seconds)")
+plt.title("Overall Train Delays During Peak vs. Non-Peak Hours")
+plt.grid()
+plt.show()
+
+print(convert_train_data)
